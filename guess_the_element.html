@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧪 Science Quiz Game</title>
+<style>
+  body {
+    margin: 0;
+    font-family: "Comic Sans MS", "Segoe UI", sans-serif;
+    background: linear-gradient(135deg, #4facfe, #00f2fe);
+    color: #fff;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  .card {
+    background: rgba(0,0,0,0.8);
+    border-radius: 20px;
+    padding: 30px;
+    width: 90%;
+    max-width: 500px;
+    text-align: center;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+  }
+  h1 {
+    font-size: 28px;
+    margin: 10px 0;
+  }
+  .question {
+    font-size: 20px;
+    margin: 15px 0;
+  }
+  .choices button {
+    background: #ff9800;
+    border: none;
+    border-radius: 10px;
+    margin: 8px;
+    padding: 12px 20px;
+    font-size: 16px;
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.3s;
+    width: 80%;
+  }
+  .choices button:hover {
+    background: #ffc107;
+  }
+  .leaderboard {
+    margin-top: 20px;
+    text-align: left;
+  }
+  .leaderboard h3 {
+    font-size: 18px;
+    margin-bottom: 5px;
+  }
+  .leaderboard ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .leaderboard li {
+    font-size: 15px;
+    margin: 3px 0;
+  }
+  #welcome img {
+    width: 120px;
+    margin-bottom: 10px;
+  }
+  .scoreboard, .timer, .message {
+    font-size: 18px;
+    margin: 8px 0;
+  }
+</style>
+</head>
+<body>
+
+<!-- Welcome screen -->
+<div class="card" id="welcome">
+  <img src="https://cdn-icons-png.flaticon.com/512/2721/2721224.png" alt="Mascot">
+  <h1>👋 Welcome to the Science Quiz!</h1>
+  <p>🧪 Fun quiz about elements. Test your knowledge!</p>
+  <button onclick="startQuiz()">Start Quiz</button>
+</div>
+
+<!-- Quiz screen -->
+<div class="card" id="quizCard" style="display:none;">
+  <h1>🧪 Science Quiz Game</h1>
+  <div class="scoreboard" id="score">Score: 0</div>
+  <div class="timer" id="timer">Time left: 10s</div>
+  <div class="question" id="question">Loading...</div>
+  <div class="choices" id="choices"></div>
+  <div class="message" id="message"></div>
+  <button onclick="restartQuiz()" style="display:none;" id="restartBtn">Play Again</button>
+  <div class="leaderboard">
+    <h3>🏆 Leaderboard</h3>
+    <ul id="leaderboardList"></ul>
+    <button onclick="resetLeaderboard()">Reset Leaderboard</button>
+  </div>
+</div>
+
+<!-- Sound effects -->
+<audio id="correctSound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_d03795bb51.mp3?filename=correct-2-46134.mp3"></audio>
+<audio id="wrongSound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_a20f38c199.mp3?filename=wrong-answer-126515.mp3"></audio>
+
+<script>
+const elements = [
+  {name:"Hydrogen",hint:"Lightest element, in water (H₂O)"},
+  {name:"Helium",hint:"Gas in balloons"},
+  {name:"Carbon",hint:"Coal and diamonds"},
+  {name:"Oxygen",hint:"We breathe it"},
+  {name:"Nitrogen",hint:"Most of the air"},
+  {name:"Neon",hint:"Glows in signs"},
+  {name:"Sodium",hint:"Part of table salt"},
+  {name:"Chlorine",hint:"In swimming pools"},
+  {name:"Magnesium",hint:"Bright white flame"},
+  {name:"Aluminum",hint:"Cans & foil"},
+  {name:"Calcium",hint:"Strong bones"},
+  {name:"Iron",hint:"In blood & steel"},
+  {name:"Copper",hint:"Wires & coins"},
+  {name:"Silver",hint:"Jewelry & coins"},
+  {name:"Gold",hint:"Yellow precious metal"},
+  {name:"Zinc",hint:"Stops rust"},
+  {name:"Lead",hint:"Heavy, old pipes"},
+  {name:"Fluorine",hint:"In toothpaste"},
+  {name:"Phosphorus",hint:"In bones & DNA"},
+  {name:"Potassium",hint:"In bananas"}
+];
+
+let questions=[], current=0, score=0, timer=10, timerInterval;
+let leaderboard=JSON.parse(localStorage.getItem('leaderboard'))||[];
+
+function shuffle(array) {
+  return array.sort(()=>Math.random()-0.5);
+}
+
+function startQuiz() {
+  document.getElementById('welcome').style.display='none';
+  document.getElementById('quizCard').style.display='block';
+  questions=shuffle([...elements]).slice(0,3); // 3 questions
+  current=0; score=0;
+  document.getElementById('restartBtn').style.display='none';
+  updateScore(); updateLeaderboard();
+  showQuestion();
+}
+
+function showQuestion() {
+  if (current<questions.length) {
+    document.getElementById('question').innerText="🔍 "+questions[current].hint+" (Q "+(current+1)+" of "+questions.length+")";
+    createChoices();
+    timer=10;
+    updateTimer();
+    clearInterval(timerInterval);
+    timerInterval=setInterval(countdown,1000);
+  } else endQuiz();
+}
+
+function createChoices() {
+  const correct=questions[current].name;
+  let options=[correct];
+  while(options.length<4){
+    let rnd=elements[Math.floor(Math.random()*elements.length)].name;
+    if(!options.includes(rnd)) options.push(rnd);
+  }
+  options=shuffle(options);
+  const choicesDiv=document.getElementById('choices');
+  choicesDiv.innerHTML='';
+  options.forEach(opt=>{
+    const btn=document.createElement('button');
+    btn.innerText=opt;
+    btn.onclick=()=>checkAnswer(opt);
+    choicesDiv.appendChild(btn);
+  });
+}
+
+function countdown(){
+  timer--;
+  updateTimer();
+  if(timer<=0){
+    clearInterval(timerInterval);
+    document.getElementById('wrongSound').play();
+    score--;
+    updateScore();
+    nextQuestion();
+  }
+}
+
+function checkAnswer(selected){
+  clearInterval(timerInterval);
+  const correct=questions[current].name;
+  if(selected===correct){
+    document.getElementById('correctSound').play();
+    score++;
+  }else{
+    document.getElementById('wrongSound').play();
+    score--;
+  }
+  updateScore();
+  nextQuestion();
+}
+
+function nextQuestion(){
+  current++;
+  setTimeout(()=>{showQuestion();},500);
+}
+
+function endQuiz(){
+  clearInterval(timerInterval);
+  document.getElementById('question').innerText="🎉 Quiz Over!";
+  document.getElementById('choices').innerHTML='';
+  document.getElementById('timer').innerText='';
+  const name=prompt("Enter your name for leaderboard:")||"Player";
+  leaderboard.push({name,score});
+  leaderboard.sort((a,b)=>b.score - a.score);
+  localStorage.setItem('leaderboard',JSON.stringify(leaderboard));
+  updateLeaderboard();
+  document.getElementById('restartBtn').style.display='inline-block';
+}
+
+function updateScore(){
+  document.getElementById('score').innerText="Score: "+score;
+}
+
+function updateTimer(){
+  document.getElementById('timer').innerText="Time left: "+timer+"s";
+}
+
+function updateLeaderboard(){
+  const list=document.getElementById('leaderboardList');
+  list.innerHTML='';
+  if(leaderboard.length===0) list.innerHTML='<li>No scores yet</li>';
+  else leaderboard.slice(0,5).forEach((e,i)=>{
+    list.innerHTML+=`<li>${i+1}. ${e.name}: ${e.score}</li>`;
+  });
+}
+
+function restartQuiz(){
+  startQuiz();
+}
+
+function resetLeaderboard(){
+  if(confirm("Clear leaderboard?")){
+    leaderboard=[]; localStorage.removeItem('leaderboard'); updateLeaderboard();
+  }
+}
+
+updateLeaderboard();
+</script>
+</body>
+</html>
